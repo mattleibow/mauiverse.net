@@ -1,30 +1,74 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getEntry, render } from 'astro:content';
+import { apps } from '../../data/built-with-maui-apps.generated';
 
-const entry = await getEntry('built-with-maui', 'apps');
+const sourceRepoUrl = 'https://github.com/jfversluis/built-with-maui';
 
-if (!entry) {
-  throw new Error(
-    'Missing built-with-maui content. Run `npm run fetch:built-with-maui` before building.'
-  );
+// Derive available platforms for filter chips
+const platformKeys = ['android', 'ios', 'windows', 'website', 'github'] as const;
+const platformMeta: Record<string, { label: string; icon: string; color: string }> = {
+  android: { label: 'Android', icon: 'fa-brands fa-android', color: 'text-green-500' },
+  ios: { label: 'iOS', icon: 'fa-brands fa-apple', color: 'text-gray-600 dark:text-gray-300' },
+  windows: { label: 'Windows', icon: 'fa-brands fa-windows', color: 'text-blue-500' },
+  website: { label: 'Website', icon: 'fa-solid fa-globe', color: 'text-brand' },
+  github: { label: 'GitHub', icon: 'fa-brands fa-github', color: 'text-gray-700 dark:text-gray-300' },
+};
+
+// Color palette for letter avatars (deterministic based on name).
+// Each gradient is a complete Tailwind class string so the JIT compiler detects them.
+const avatarColors = [
+  'from-violet-500 to-purple-600',
+  'from-blue-500 to-indigo-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-red-600',
+  'from-pink-500 to-rose-600',
+  'from-cyan-500 to-blue-600',
+  'from-amber-500 to-orange-600',
+  'from-fuchsia-500 to-pink-600',
+  'from-lime-500 to-green-600',
+  'from-sky-500 to-cyan-600',
+];
+
+function getAvatarGradient(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
-const { Content } = await render(entry);
-const sourceRepoUrl = 'https://github.com/jfversluis/built-with-maui';
+function getInitials(name: string): string {
+  const words = name.split(/\s+/);
+  if (words.length === 1) return name.slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+// Platforms present in the dataset (for filter chips)
+const activePlatforms = platformKeys.filter((key) =>
+  apps.some((app) => app.links[key])
+);
 ---
 
 <BaseLayout
   title="Built with MAUI | MAUIverse"
-  description="A list of real-world apps built with .NET MAUI."
+  description="Discover real-world apps built with .NET MAUI — browse, search, and filter by platform."
   allowPageScroll={true}
 >
-  <section class="min-h-screen py-24 md:py-32 relative z-10">
+  <section class="min-h-screen px-0 py-24 md:py-32 relative z-10">
     <div class="container mx-auto max-w-6xl px-6">
-      <div class="page-hero !px-0 !text-left">
-        <h1 class="text-gradient">Built with MAUI</h1>
-        <p class="subtitle !mx-0">
-          Real-world apps built with .NET MAUI.
+      <!-- Hero -->
+      <div class="fade-in">
+        <p class="mb-4 text-sm font-header font-bold uppercase tracking-[0.2em] text-brand">
+          Showcase
+        </p>
+        <h1 class="mb-5 text-gradient text-4xl md:text-6xl font-header font-bold">
+          Built with MAUI
+        </h1>
+        <p class="mb-4 max-w-2xl text-lg text-muted leading-relaxed">
+          Real-world apps built with .NET MAUI, curated from the community.
+        </p>
+        <p class="mb-12 text-base text-muted-light">
+          <span class="font-semibold text-brand-dark" data-app-count>{apps.length}</span> apps &middot;
           <a
             href={sourceRepoUrl}
             target="_blank"
@@ -36,11 +80,199 @@ const sourceRepoUrl = 'https://github.com/jfversluis/built-with-maui';
         </p>
       </div>
 
-      <div class="divider-gradient mb-12"></div>
+      <div class="divider-gradient mb-10"></div>
 
-      <article class="reveal prose dark:prose-invert max-w-none prose-a:text-brand hover:prose-a:underline prose-headings:text-brand-dark prose-headings:font-header prose-img:rounded-xl">
-        <Content />
-      </article>
+      <!-- Search & Filters -->
+      <div class="reveal mb-8">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,24rem)_1fr] lg:items-start">
+          <!-- Search -->
+          <div>
+            <label for="app-search" class="mb-2 block text-sm font-semibold text-brand-dark">
+              Search apps
+            </label>
+            <div class="relative">
+              <input
+                id="app-search"
+                type="text"
+                placeholder="Search by name or description…"
+                class="w-full rounded-md border border-edge/50 bg-surface-alt px-4 py-3 pr-12 text-base text-brand-dark placeholder:text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                data-app-search-input
+              />
+              <button
+                type="button"
+                class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-full p-2 text-muted transition hover:text-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                aria-label="Clear search"
+                data-app-search-clear
+              >
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Platform Filters -->
+          <fieldset data-app-filter-group>
+            <legend class="mb-2 text-sm font-semibold text-brand-dark">Filter by platform</legend>
+            <div class="flex flex-wrap gap-2">
+              {activePlatforms.map((key) => {
+                const meta = platformMeta[key];
+                return (
+                  <label class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-edge/40 px-3 py-2 text-sm text-muted transition hover:border-brand/40 hover:text-brand">
+                    <input
+                      type="checkbox"
+                      value={key}
+                      class="h-4 w-4 rounded border-edge text-brand focus:ring-brand"
+                      data-app-filter-checkbox
+                    />
+                    <i class={`${meta.icon} ${meta.color}`} aria-hidden="true"></i>
+                    <span>{meta.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
+      <!-- App Cards Grid -->
+      <div
+        class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        aria-label="Apps built with .NET MAUI"
+        data-app-grid
+      >
+        {apps.map((app) => {
+          const platforms = Object.keys(app.links).filter((k) =>
+            platformKeys.includes(k as typeof platformKeys[number])
+          );
+          const gradient = getAvatarGradient(app.name);
+          const initials = getInitials(app.name);
+
+          return (
+            <article
+              class="group relative flex flex-col rounded-xl border border-edge/40 bg-surface-alt/50 p-5 shadow-sm transition hover-glow"
+              data-app-card
+              data-search-text={`${app.name.toLowerCase()} ${app.description.toLowerCase()}`}
+              data-platforms={platforms.join(' ')}
+            >
+              <!-- Header: Icon + Name -->
+              <div class="mb-4 flex items-start gap-4">
+                {app.iconUrl ? (
+                  <img
+                    src={app.iconUrl}
+                    alt={`${app.name} icon`}
+                    width="56"
+                    height="56"
+                    class="h-14 w-14 flex-shrink-0 rounded-xl shadow-sm"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div class={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white text-lg font-bold shadow-sm`}>
+                    {initials}
+                  </div>
+                )}
+                <div class="min-w-0 flex-1">
+                  <h2 class="text-lg font-semibold text-brand-dark leading-tight">
+                    {app.name}
+                  </h2>
+                  {app.downloads && (
+                    <p class="mt-1 text-xs text-muted-light">
+                      <i class="fa-solid fa-download mr-1" aria-hidden="true"></i>
+                      {app.downloads}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <!-- Description -->
+              <p class="mb-4 flex-1 text-sm text-muted leading-relaxed line-clamp-3">
+                {app.description}
+              </p>
+
+              <!-- Platform Links -->
+              <div class="flex flex-wrap gap-2 border-t border-edge/20 pt-3">
+                {platformKeys.map((key) => {
+                  const url = app.links[key];
+                  if (!url) return null;
+                  const meta = platformMeta[key];
+                  return (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1.5 rounded-full border border-edge/30 px-2.5 py-1 text-xs text-muted transition hover:border-brand/40 hover:text-brand"
+                      title={`Open on ${meta.label}`}
+                    >
+                      <i class={`${meta.icon} ${meta.color}`} aria-hidden="true"></i>
+                      <span>{meta.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <!-- No results message -->
+      <p class="mt-6 hidden text-center text-base text-muted" data-app-no-results>
+        No apps found matching your search.
+      </p>
     </div>
   </section>
+
+  <script is:inline>
+    (() => {
+      const searchInput = document.querySelector('[data-app-search-input]');
+      const clearButton = document.querySelector('[data-app-search-clear]');
+      const filterCheckboxes = Array.from(document.querySelectorAll('[data-app-filter-checkbox]'));
+      const appCards = Array.from(document.querySelectorAll('[data-app-card]'));
+      const noResultsMessage = document.querySelector('[data-app-no-results]');
+      const appCount = document.querySelector('[data-app-count]');
+
+      if (!(searchInput instanceof HTMLInputElement) || !(clearButton instanceof HTMLButtonElement) || !noResultsMessage) {
+        return;
+      }
+
+      const applyFilter = () => {
+        const query = searchInput.value.trim().toLowerCase();
+        const selectedPlatforms = filterCheckboxes
+          .filter((cb) => cb instanceof HTMLInputElement && cb.checked)
+          .map((cb) => cb instanceof HTMLInputElement ? cb.value : '')
+          .filter((v) => v.length > 0);
+        let visibleCount = 0;
+
+        appCards.forEach((card) => {
+          const searchText = card.getAttribute('data-search-text') ?? '';
+          const platforms = (card.getAttribute('data-platforms') ?? '').split(' ').filter(Boolean);
+
+          const matchesSearch = query.length === 0 || searchText.includes(query);
+          const matchesPlatforms =
+            selectedPlatforms.length === 0 ||
+            selectedPlatforms.every((p) => platforms.includes(p));
+
+          const visible = matchesSearch && matchesPlatforms;
+          card.classList.toggle('hidden', !visible);
+          if (visible) visibleCount += 1;
+        });
+
+        noResultsMessage.classList.toggle('hidden', visibleCount > 0);
+        clearButton.classList.toggle('hidden', query.length === 0);
+        if (appCount) {
+          appCount.textContent = String(visibleCount);
+        }
+      };
+
+      searchInput.addEventListener('input', applyFilter);
+      filterCheckboxes.forEach((cb) => {
+        if (cb instanceof HTMLInputElement) {
+          cb.addEventListener('change', applyFilter);
+        }
+      });
+      clearButton.addEventListener('click', () => {
+        searchInput.value = '';
+        applyFilter();
+        searchInput.focus();
+      });
+      applyFilter();
+    })();
+  </script>
 </BaseLayout>
