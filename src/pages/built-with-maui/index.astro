@@ -14,7 +14,8 @@ const platformMeta: Record<string, { label: string; icon: string; color: string 
   github: { label: 'GitHub', icon: 'fa-brands fa-github', color: 'text-gray-700 dark:text-gray-300' },
 };
 
-// Color palette for letter avatars (deterministic based on name)
+// Color palette for letter avatars (deterministic based on name).
+// Each gradient is a complete Tailwind class string so the JIT compiler detects them.
 const avatarColors = [
   'from-violet-500 to-purple-600',
   'from-blue-500 to-indigo-600',
